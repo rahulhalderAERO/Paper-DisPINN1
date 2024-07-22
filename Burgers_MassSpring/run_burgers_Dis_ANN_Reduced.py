@@ -6,19 +6,6 @@ from pina.model import FeedForward,LSTM
 from scipy.io import loadmat
 from problems.burgers_tensor_discrete_ANN_Reduced import Burgers1D
 
-
-class myFeature(torch.nn.Module):
-    """
-    Feature: sin(pi*x)
-    """
-    def __init__(self, idx):
-        super(myFeature, self).__init__()
-        self.idx = idx
-
-    def forward(self, x):
-        return LabelTensor(torch.sin(torch.pi * x.extract(['x'])), ['sin(x)'])
-
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Run PINA")
@@ -26,10 +13,8 @@ if __name__ == "__main__":
     group.add_argument("-s", "-save", action="store_true")
     group.add_argument("-l", "-load", action="store_true")
     parser.add_argument("id_run", help = "number of run", type=int)
-    parser.add_argument("features", help = "extra features", type=int)
     args = parser.parse_args()
 
-    feat = [myFeature(0)] if args.features else []
     ntotal = 100
     cut_Eqn = 10
     cut_Data = 1
@@ -51,7 +36,6 @@ if __name__ == "__main__":
         output_variables=burgers_problem.output_variables,
         input_variables=burgers_problem.input_variables,
         func=Softplus,
-        extra_features = feat,
     )
 
     pinn = DisPINNANNBurgers_Reduced(
