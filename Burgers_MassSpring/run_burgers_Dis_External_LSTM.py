@@ -6,19 +6,6 @@ from pina import DisPINNLSTMBurgers_External, Plotter, LabelTensor
 from pina.model import FeedForward,LSTM
 from problems.burgers_tensor_discrete_LSTM_pointwise_Residual1 import Burgers1D
 
-
-class myFeature(torch.nn.Module):
-    """
-    Feature: sin(pi*x)
-    """
-    def __init__(self, idx):
-        super(myFeature, self).__init__()
-        self.idx = idx
-
-    def forward(self, x):
-        return LabelTensor(torch.sin(torch.pi * x.extract(['x'])), ['sin(x)'])
-
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Run PINA")
@@ -29,7 +16,6 @@ if __name__ == "__main__":
     parser.add_argument("features", help = "extra features", type=int)
     args = parser.parse_args()
 
-    feat = [myFeature(0)] if args.features else []
     ntotal = 100
     cut_Eqn = 10
     cut_Data = 1
@@ -51,9 +37,6 @@ if __name__ == "__main__":
             locations=['A','D','F'])
         pinn.train(6000, 1)
         pinn.save_state('pina.burger_dis_LSTM.{}.{}'.format(args.id_run, args.features))
-        # plotter = Plotter()        
-        # plotter.plot_same_training_test_data(pinn)
-        # plotter.plot_loss(pinn)
     else:
         pinn.load_state('pina.burger_dis_LSTM.{}.{}'.format(args.id_run, args.features))
         plotter = Plotter()
