@@ -7,6 +7,7 @@ import numpy
 from scipy.io import savemat
 from pina.operators import grad
 import time
+import numpy as np
 
 
 
@@ -37,18 +38,9 @@ class DisPINNLSTMBurgers_External(object):
         if dtype == torch.float64:
             raise NotImplementedError('only float for now')
 
-        self.problem = problem
-        # self.getM = problem.getM()
-        # self.getK = problem.getK()        
-        self.rand_choice_integer_Eq = problem.rand_choice_integer_Eq()
+        self.problem = problem       
         self.rand_choice_integer_Data = problem.rand_choice_integer_Data()
-
-        # self._architecture = architecture if architecture else dict()
-        # self._architecture['input_dimension'] = self.problem.domain_bound.shape[0]
-        # self._architecture['output_dimension'] = len(self.problem.variables)
-        # if hasattr(self.problem, 'params_domain'):
-            # self._architecture['input_dimension'] += self.problem.params_domain.shape[0]
-
+        self.runtype = problem.runtype()
         self.error_norm = error_norm
 
         if device == 'cuda' and not torch.cuda.is_available():
@@ -106,12 +98,6 @@ class DisPINNLSTMBurgers_External(object):
                 'history' : self.history_loss,
                 'input_points_dict' : self.input_pts,
         }
-
-        # TODO save also architecture param?
-        #if isinstance(self.model, DeepFeedForward):
-        #    checkpoint['model_class'] = self.model.__class__
-        #    checkpoint['model_structure'] = {
-        #    }
         torch.save(checkpoint, filename)
 
     def load_state(self, filename):
@@ -241,20 +227,112 @@ class DisPINNLSTMBurgers_External(object):
             losses = []
             losses_AD = []
             losses_Dis = []
-
             
             for condition_name in self.problem.conditions:
-                condition = self.problem.conditions[condition_name]
-                                
+              condition = self.problem.conditions[condition_name]
+                
+              
+              if self.runtype == "Not_Detached":                  
+                if (condition_name == 'D'):                
+                   if hasattr(condition, 'function'):                
+                    pts = self.input_pts[condition_name]
+                    predicted = self.model(pts)
+                    pts_new = pts[self.model.seq_length+1:,:].as_subclass(LabelTensor) #pts
+                    pts_new.labels = self.model.input_variables                       
+                    for function in condition.function:                                                
+                        GE = function(self,pts_new, predicted)
+                        y_mid = GE['new_tensor']                        
+                        # ===== Loss Computation Phase I================================================================                        
+                        L = torch.linalg.torch.mean(y_mid.pow(2))
+                        losses.append(L)
+                        losses_Dis.append(L)
+
+                if (condition_name == 'F'):        
+                   
+                   if hasattr(condition, 'function'):
+                    pts = self.input_pts[condition_name]
+                    predicted = self.model(pts)
+                    pts_new = pts[self.model.seq_length+1:,:].as_subclass(LabelTensor) #pts 
+                    pts_new.labels = self.model.input_variables                    
+                    for function in condition.function:
+                        residuals = function(self,pts_new, predicted)
+                        local_loss = (
+                            condition.data_weight*self._compute_norm(
+                                residuals))
+                        losses_Dis.append(local_loss)
+                        losses.append(local_loss) 
+                        
+                if hasattr(condition, 'output_points'):
+                    
+                    pts = condition.input_points                    
+                    pts = (pts.to(dtype=self.dtype,device= self.device))
+                    pts.requires_grad_(True)
+                    pts.retain_grad()
+                    predicted = self.model(pts)
+                    output_tensor = condition.output_points
+                    tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])                    
+                    if self.rand_choice_integer_Data == 100:                                      
+                      residuals = (predicted - tensors_y)
+                    else:
+                      list_arrayD = np.load("Select_Point/Burgers/list_arrayD_1.npy") 
+                      list_arrayD[1] = list_arrayD[1] - self.model.seq_length 
+                      residuals = (predicted[list_arrayD,:] - tensors_y[list_arrayD,:])
+                    residuals_aligned = residuals.reshape(-1,1)
+                    local_loss_original = (
+                            condition.data_weight*self._compute_norm(
+                                residuals_aligned))
+                    losses.append(local_loss_original)
+                    losses_Dis.append(local_loss_original)
+              
+              
+              if self.runtype == "Data":                  
+                if (condition_name == 'F'):        
+                   
+                   if hasattr(condition, 'function'):
+                    pts = self.input_pts[condition_name]
+                    predicted = self.model(pts)
+                    pts_new = pts[self.model.seq_length+1:,:].as_subclass(LabelTensor) #pts 
+                    pts_new.labels = self.model.input_variables                    
+                    for function in condition.function:
+                        residuals = function(self,pts_new, predicted)
+                        local_loss = (
+                            condition.data_weight*self._compute_norm(
+                                residuals))
+                        losses_Dis.append(local_loss)
+                        losses.append(local_loss) 
+                        
+                if hasattr(condition, 'output_points'):
+                    
+                    pts = condition.input_points                    
+                    pts = (pts.to(dtype=self.dtype,device= self.device))
+                    pts.requires_grad_(True)
+                    pts.retain_grad()
+                    predicted = self.model(pts)
+                    output_tensor = condition.output_points
+                    tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])                    
+                    if self.rand_choice_integer_Data == 100:                                      
+                      residuals = (predicted - tensors_y)
+                    else:
+                      list_arrayD = np.load("Select_Point/Burgers/list_arrayD_1.npy") 
+                      list_arrayD[1] = list_arrayD[1] - self.model.seq_length 
+                      residuals = (predicted[list_arrayD,:] - tensors_y[list_arrayD,:])
+                    residuals_aligned = residuals.reshape(-1,1)
+                    local_loss_original = (
+                            condition.data_weight*self._compute_norm(
+                                residuals_aligned))
+                    losses.append(local_loss_original)
+                    losses_Dis.append(local_loss_original)
+
+              else:                
                 if (condition_name == 'A'): 
                  
-                 if epoch == 0 or (epoch > 0 and epoch % 1000 == 0): 
+                 if epoch == 0 or (epoch > 0 and epoch % 100 == 0): 
                   
                   if hasattr(condition, 'function'):
                 
                     pts = self.input_pts[condition_name]
                     predicted = self.model(pts)
-                    pts_new = pts[self.model.seq_length+1:,:].as_subclass(LabelTensor) #pts
+                    pts_new = pts
                     pts_new.labels = self.model.input_variables                                        
                     for function in condition.function:
                         Derivative = function(self,pts_new, predicted)
@@ -267,7 +345,7 @@ class DisPINNLSTMBurgers_External(object):
                 
                     pts = self.input_pts[condition_name]
                     predicted = self.model(pts)
-                    pts_new = pts[self.model.seq_length+1:,:].as_subclass(LabelTensor) #pts
+                    pts_new = pts
                     pts_new.labels = self.model.input_variables                    
                     for function in condition.function:                                                
                         dydo_mult_o_Dis = torch.mm(dy_doutput_Dis,predicted.reshape(-1,1))
@@ -279,26 +357,6 @@ class DisPINNLSTMBurgers_External(object):
                         L_Dis = torch.linalg.torch.mean(Res_Dis)
                         losses.append(L)
                         losses_Dis.append(L_Dis)
-                
-                # if (condition_name == 'D'):
-                
-                  # if hasattr(condition, 'function'):
-                
-                    # pts = self.input_pts[condition_name]
-                    # predicted = self.model(pts)
-                    # pts_new = pts #pts[self.model.seq_length+1:,:].as_subclass(LabelTensor) #pts
-                    # pts_new.labels = self.model.input_variables                       
-                    # for function in condition.function:                                                
-                        # GE = function(self,pts_new, predicted)
-                        # y_mid = GE['new_tensor']
-                        
-                        # # ===== Loss Computation Phase I================================================================                        
-                        # L = torch.linalg.torch.mean(y_mid.pow(2))
-                        # losses.append(L)
-                        # losses_Dis.append(L)
-
-
-                                
                                         
                 if (condition_name == 'F'):        
                    
@@ -323,15 +381,20 @@ class DisPINNLSTMBurgers_External(object):
                     pts.retain_grad()
                     predicted = self.model(pts)
                     output_tensor = condition.output_points
-                    tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])
-                    # list_arrayD = self.rand_choice_integer_Data
-                    residuals = (predicted[0,:] - tensors_y[0,:])
+                    tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])                    
+                    if self.rand_choice_integer_Data == 100:                                      
+                      residuals = (predicted - tensors_y)
+                    else:
+                      list_arrayD = np.load("Select_Point/Burgers/list_arrayD_1.npy") 
+                      list_arrayD[1] = list_arrayD[1] - self.model.seq_length 
+                      residuals = (predicted[list_arrayD,:] - tensors_y[list_arrayD,:])
                     residuals_aligned = residuals.reshape(-1,1)
                     local_loss_original = (
                             condition.data_weight*self._compute_norm(
                                 residuals_aligned))
                     losses.append(local_loss_original)
                     losses_Dis.append(local_loss_original)
+
             
             self.optimizer.zero_grad()
             sum(losses_Dis).backward(retain_graph=True)            

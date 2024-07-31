@@ -6,6 +6,7 @@ from .label_tensor import LabelTensor
 import numpy
 from scipy.io import savemat
 import time
+import numpy as np
 
 
 torch.pi = torch.acos(torch.zeros(1)).item() * 2 # which is 3.1415927410125732
@@ -36,8 +37,8 @@ class DisPINNANNBurgers(object):
             raise NotImplementedError('only float for now')
 
         self.problem = problem       
-        self.rand_choice_integer_Eq = problem.rand_choice_integer_Eq()
         self.rand_choice_integer_Data = problem.rand_choice_integer_Data()
+        self.runtype = problem.runtype()
         self.error_norm = error_norm
 
         if device == 'cuda' and not torch.cuda.is_available():
@@ -204,7 +205,33 @@ class DisPINNANNBurgers(object):
             losses = []
             for condition_name in self.problem.conditions:
                 condition = self.problem.conditions[condition_name]
-                if hasattr(condition, 'function'):
+                
+                if self.runtype == "Data":
+                
+                 if hasattr(condition, 'output_points'):
+                    
+                    pts = condition.input_points                    
+                    pts = (pts.to(dtype=self.dtype,device=self.device))
+                    pts.requires_grad_(True)
+                    pts.retain_grad()
+                    predicted = self.model(pts)
+                    
+                    # MODIFY OUTPUT Points:
+                    
+                    output_tensor = condition.output_points                                                            
+                    if self.rand_choice_integer_Data == 100:                                      
+                      residuals = (predicted - output_tensor)
+                    else:
+                      list_arrayD = np.load("Select_Point/Burgers/list_arrayD_{}.npy".format(self.rand_choice_integer_Data))  
+                      residuals = (predicted[list_arrayD,:] - output_tensor[list_arrayD,:])                  
+                    residuals_aligned = residuals.reshape(-1,1)
+                    local_loss = (
+                        condition.data_weight*self._compute_norm(residuals))
+                    losses.append(local_loss)   
+                
+                else:
+                
+                 if hasattr(condition, 'function'):
                     pts = self.input_pts[condition_name]
                     predicted = self.model(pts)
                     pts_new = pts
@@ -216,7 +243,7 @@ class DisPINNANNBurgers(object):
                                 residuals))
                         losses.append(local_loss)
                         
-                if hasattr(condition, 'output_points'):
+                 if hasattr(condition, 'output_points'):
                     
                     pts = condition.input_points                    
                     pts = (pts.to(dtype=self.dtype,device=self.device))
@@ -226,13 +253,17 @@ class DisPINNANNBurgers(object):
                     
                     # MODIFY OUTPUT Points:
                     
-                    output_tensor = condition.output_points                                        
-                    list_arrayD = self.rand_choice_integer_Data 
-                    residuals = (predicted[0,:] - output_tensor[0,:])                    
+                    output_tensor = condition.output_points
+                    if self.rand_choice_integer_Data == 100:                                      
+                      residuals = (predicted - output_tensor)
+                    else:
+                      list_arrayD = np.load("Select_Point/Burgers/list_arrayD_{}.npy".format(self.rand_choice_integer_Data))  
+                      residuals = (predicted[list_arrayD,:] - output_tensor[list_arrayD,:])                      
                     residuals_aligned = residuals.reshape(-1,1)
                     local_loss = (
                         condition.data_weight*self._compute_norm(residuals))
-                    losses.append(local_loss)    
+                    losses.append(local_loss)
+                    
             return losses
     
     

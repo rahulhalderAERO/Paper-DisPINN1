@@ -5,6 +5,7 @@ from .problem import AbstractProblem
 from .label_tensor import LabelTensor
 import numpy
 from scipy.io import savemat
+import numpy as np
 
 
 torch.pi = torch.acos(torch.zeros(1)).item() * 2 # which is 3.1415927410125732
@@ -36,7 +37,9 @@ class DisPINNLSTMMassSpring(object):
 
         self.problem = problem
         self.getM = problem.getM()
-        self.getK = problem.getK()        
+        self.getK = problem.getK() 
+        self.rand_choice_integer_Data = problem.rand_choice_integer_Data()
+        self.runtype = problem.runtype()        
         self.error_norm = error_norm
 
         if device == 'cuda' and not torch.cuda.is_available():
@@ -203,19 +206,11 @@ class DisPINNLSTMMassSpring(object):
             losses = []
             for condition_name in self.problem.conditions:
                 condition = self.problem.conditions[condition_name]
-                if hasattr(condition, 'function'):
-                    pts = self.input_pts[condition_name]
-                    predicted = self.model(pts)
-                    pts_new = pts[self.model.seq_length+1:,:].as_subclass(LabelTensor) #pts
-                    pts_new.labels = self.model.input_variables                    
-                    for function in condition.function:
-                        residuals = function(self,pts_new, predicted)
-                        local_loss = (
-                            condition.data_weight*self._compute_norm(
-                                residuals))
-                        losses.append(local_loss)
-                        
-                if hasattr(condition, 'output_points'):
+                
+                
+                if self.runtype == "Data":
+                
+                  if hasattr(condition, 'output_points'):
                     
                     pts = condition.input_points                    
                     pts = (pts.to(dtype=self.dtype,device=self.device))
@@ -227,8 +222,49 @@ class DisPINNLSTMMassSpring(object):
                     
                     output_tensor = condition.output_points                    
                     tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])
-                    list_arrayD = numpy.load("./Select_Point/list_arrayD_3b.npy") 
-                    residuals = (predicted[list_arrayD,:] - output_tensor[list_arrayD,:])
+                    if self.rand_choice_integer_Data == 1000:                                      
+                      residuals = (predicted - tensors_y)
+                    else:
+                      list_arrayD = np.load("Select_Point/Mass_Spring/list_arrayD_{}.npy".format(self.rand_choice_integer_Data))  
+                      residuals = (predicted[list_arrayD,:] - tensors_y[list_arrayD,:])
+                    residuals_aligned = residuals.reshape(-1,1)
+                    local_loss = (
+                        condition.data_weight*self._compute_norm(residuals))
+                    losses.append(local_loss)  
+                else:
+                
+                  if hasattr(condition, 'function'):
+                    pts = self.input_pts[condition_name]
+                    predicted = self.model(pts)
+                    pts_new = pts[self.model.seq_length+1:,:].as_subclass(LabelTensor) #pts
+                    pts_new.labels = self.model.input_variables                    
+                    for function in condition.function:
+                        residuals = function(self,pts_new, predicted)
+                        local_loss = (
+                            condition.data_weight*self._compute_norm(
+                                residuals))
+                        losses.append(local_loss)
+                        
+                  if hasattr(condition, 'output_points'):
+                    
+                    pts = condition.input_points                    
+                    pts = (pts.to(dtype=self.dtype,device=self.device))
+                    pts.requires_grad_(True)
+                    pts.retain_grad()
+                    predicted = self.model(pts)
+                    
+                    # MODIFY OUTPUT Points:
+                    
+                    output_tensor = condition.output_points                    
+                    tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])
+                    
+                    if self.rand_choice_integer_Data == 1000:                                      
+                      residuals = (predicted - tensors_y)
+                    else:
+                      list_arrayD = np.load("Select_Point/Mass_Spring/list_arrayD_{}.npy".format(self.rand_choice_integer_Data))
+                      list_arrayD[1:] = list_arrayD[1:] - self.model.seq_length                      
+                      residuals = (predicted[list_arrayD,:] - tensors_y[list_arrayD,:])
+                      
                     residuals_aligned = residuals.reshape(-1,1)
                     local_loss = (
                         condition.data_weight*self._compute_norm(residuals))

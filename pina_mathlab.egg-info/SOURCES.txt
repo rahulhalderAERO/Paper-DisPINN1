@@ -19,6 +19,10 @@ pina/pinn.py
 pina/pinn_Burgers.py
 pina/pinn_MassSpring.py
 pina/plotter.py
+pina/plotter_ANN.py
+pina/plotter_External_ANN.py
+pina/plotter_External_LSTM.py
+pina/plotter_LSTM.py
 pina/span.py
 pina/span1.py
 pina/utils.py

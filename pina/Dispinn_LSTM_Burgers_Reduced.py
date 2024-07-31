@@ -5,6 +5,7 @@ from .problem import AbstractProblem
 from .label_tensor import LabelTensor
 import numpy
 from scipy.io import savemat
+import numpy as np
 
 
 torch.pi = torch.acos(torch.zeros(1)).item() * 2 # which is 3.1415927410125732
@@ -35,8 +36,8 @@ class DisPINNLSTMBurgers_Reduced(object):
             raise NotImplementedError('only float for now')
 
         self.problem = problem       
-        self.rand_choice_integer_Eq = problem.rand_choice_integer_Eq()
         self.rand_choice_integer_Data = problem.rand_choice_integer_Data()
+        self.runtype = problem.runtype()
         self.DEIM_sensor = problem.DEIM_sensor
         self.Modes = problem.Modes
         self.phi = problem.phi
@@ -216,31 +217,16 @@ class DisPINNLSTMBurgers_Reduced(object):
             self.input_pts[location].retain_grad()
             
             
-    def loss_computation_function(self):
-            losses_function = []
-            for condition_name in self.problem.conditions:
-                condition = self.problem.conditions[condition_name]
-                if hasattr(condition, 'function'):
-                    pts = self.input_pts[condition_name]
-                    predicted = self.model(pts)
-                    pts_new = pts[self.model.seq_length+1:,:].as_subclass(LabelTensor)
-                    pts_new.labels = self.model.input_variables                    
-                    # print ("size of the predicted is ===", predicted.size(), "size of the pts_new is ===", pts_new.size())
-                    for function in condition.function:
-                        residuals = function(self,pts_new, predicted)
-                        # residuals = function(pts, predicted)
-                        local_loss = (
-                            condition.data_weight*self._compute_norm(
-                                residuals))
-                        losses_function.append(local_loss)
-            return losses_function
     
     
-    def loss_computation_output(self):
-            losses_output = []
+    def loss_computation(self):
+            losses = []
             for condition_name in self.problem.conditions:
                 condition = self.problem.conditions[condition_name]
-                if hasattr(condition, 'output_points'):
+                
+                if self.runtype == "Data":
+                
+                  if hasattr(condition, 'output_points'):
                     
                     pts = condition.input_points                    
                     pts = (pts.to(dtype=self.dtype,device=self.device))
@@ -250,31 +236,34 @@ class DisPINNLSTMBurgers_Reduced(object):
                     
                     # MODIFY OUTPUT Points:
                     
-                    output_tensor = condition.output_points
-                    tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])                    
-                    residuals = (predicted - tensors_y ).reshape(-1,1)
+                    output_tensor = condition.output_points                    
+                    tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])
+                    if self.rand_choice_integer_Data == 100:                                      
+                      residuals = (predicted - tensors_y)
+                    else:
+                      list_arrayD = np.load("Select_Point/Burgers/list_arrayD_{}.npy".format(self.rand_choice_integer_Data))
+                      list_arrayD[1] = list_arrayD[1] - self.model.seq_length                       
+                      residuals = (predicted[list_arrayD,:] - tensors_y[list_arrayD,:])                   
+                    residuals_aligned = residuals.reshape(-1,1)
                     local_loss = (
                         condition.data_weight*self._compute_norm(residuals))
-                    losses_output.append(local_loss)    
-            return losses_output
-    
-    def loss_computation(self):
-            losses = []
-            for condition_name in self.problem.conditions:
-                condition = self.problem.conditions[condition_name]
-                if hasattr(condition, 'function'):
+                    losses.append(local_loss)
+                
+                else :
+                  if hasattr(condition, 'function'):
                     pts = self.input_pts[condition_name]
                     predicted = self.model(pts)
                     pts_new = pts[self.model.seq_length+1:,:].as_subclass(LabelTensor) #pts
                     pts_new.labels = self.model.input_variables                    
                     for function in condition.function:
                         residuals = function(self,pts_new, predicted)
+                        # residuals = function(pts, predicted)
                         local_loss = (
                             condition.data_weight*self._compute_norm(
                                 residuals))
                         losses.append(local_loss)
                         
-                if hasattr(condition, 'output_points'):
+                  if hasattr(condition, 'output_points'):
                     
                     pts = condition.input_points                    
                     pts = (pts.to(dtype=self.dtype,device=self.device))
@@ -286,13 +275,17 @@ class DisPINNLSTMBurgers_Reduced(object):
                     
                     output_tensor = condition.output_points                    
                     tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])                    
-                    list_arrayD = self.rand_choice_integer_Data 
-                    # residuals = (predicted - tensors_y)                    
-                    residuals = (predicted[list_arrayD,:] - output_tensor[list_arrayD,:])
+                    if self.rand_choice_integer_Data == 100:                                      
+                      residuals = (predicted - tensors_y)
+                    else:
+                      list_arrayD = np.load("Select_Point/Burgers/list_arrayD_{}.npy".format(self.rand_choice_integer_Data))
+                      list_arrayD[1] = list_arrayD[1] - self.model.seq_length                       
+                      residuals = (predicted[list_arrayD,:] - tensors_y[list_arrayD,:])
                     residuals_aligned = residuals.reshape(-1,1)
                     local_loss = (
                         condition.data_weight*self._compute_norm(residuals))
                     losses.append(local_loss)    
+            # print("The value of the loss is =====", losses)
             return losses
     
     

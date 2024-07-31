@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 from pina.label_tensor import LabelTensor
+torch.manual_seed(10)
 
 
 class FeedForward(torch.nn.Module):

@@ -31,12 +31,14 @@ class MassSpring1D(TimeDependentProblem):
     
     
 
-    def __init__(self,M,K,vf,nt):
+    def __init__(self,M,K,vf,nt,cut_Data,Type_Run):
         self.M = M
         self.K = K
         self.vf = vf
         self.const = (self.vf*self.vf)/(2*(torch.pi)); 
         self.nt = nt
+        self.cut_Data = cut_Data
+        self.Type_Run = Type_Run
     
     def getM(self):
         return self.M
@@ -44,9 +46,11 @@ class MassSpring1D(TimeDependentProblem):
     def getK(self):
         return self.K
         
-            
-    
-    
+    def rand_choice_integer_Data(self):        
+        return self.cut_Data
+        
+    def runtype(self):        
+        return self.Type_Run
     
     def Eqn_F1(self,input_, output_): 
         cut_Residual = 5    

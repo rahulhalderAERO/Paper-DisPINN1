@@ -1,7 +1,7 @@
 import argparse
 import torch
 from torch.nn import Softplus
-from pina import DisPINNANNBurgers, Plotter, LabelTensor
+from pina import DisPINNANNBurgers, PlotterANN, LabelTensor
 from pina.model import FeedForward
 from problems.burgers_tensor_discrete_ANN import Burgers1D
 
@@ -13,38 +13,38 @@ if __name__ == "__main__":
     group.add_argument("-l", "-load", action="store_true")
     parser.add_argument("id_run", help = "number of run", type=int)
     args = parser.parse_args()
-    ntotal = 100
-    cut_Eqn = 10
-    cut_Data = 1
+    cut_Data_list = [1,100]
+    Type_Run_list = ["Data","Physics"]
     
-    burgers_problem = Burgers1D(ntotal,cut_Eqn,cut_Data)
     
-    model = FeedForward(
+    for cut_Data in cut_Data_list:
+     for Type_Run in Type_Run_list:
+     
+       burgers_problem = Burgers1D(cut_Data,Type_Run)
+       model = FeedForward(
         layers=[124, 64, 24, 8],
         output_variables=burgers_problem.output_variables,
         input_variables=burgers_problem.input_variables,
         func=Softplus,
-    )
+       )
 
-    pinn = DisPINNANNBurgers(
+       pinn = DisPINNANNBurgers(
         burgers_problem,
         model,
         lr=0.006,
         error_norm='mse',
         regularizer=0)
 
-    if args.s:
+       if args.s:
         pinn.span_tensor_given_pts(
             {'n': 100,'variables': 'all'},
             locations=['D'])
-        pinn.train(6000, 1)
-        pinn.save_state('pina.burger_dis1.{}.{}'.format(args.id_run, args.features))
-        plotter = Plotter()        
-        plotter.plot_same_training_test_data(pinn)
-        plotter.plot_loss(pinn)
-    else:
-        pinn.load_state('pina.burger_dis1.{}.{}'.format(args.id_run, args.features))
-        plotter = Plotter()        
+        pinn.train(1000, 1)
+        pinn.save_state('meta_data/Burgers/ANN_pina.burger_dis.{}_{}_{}'.format(args.id_run,cut_Data,Type_Run))
+        
+       else:
+        pinn.load_state('meta_data/Burgers/ANN_pina.burger_dis.{}_{}_{}'.format(args.id_run,cut_Data,Type_Run))
+        plotter = PlotterANN()        
         plotter.plot_same_training_test_data(pinn)
         plotter.plot_loss(pinn)
 

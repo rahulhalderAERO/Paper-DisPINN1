@@ -39,37 +39,19 @@ class Burgers1D(TimeDependentProblem):
     output_variables = list_q
     temporal_domain = Span({'t': input_tensor.reshape(-1,1)})
     
-    def __init__(self,ntotal,cut_Eq,cut_Data,DEIM_sensor,Modes,phi,Ar):
-        self.ntotal = ntotal
-        self.cut_Eq = cut_Eq
+    def __init__(self,cut_Data,Type_Run,DEIM_sensor,Modes,phi,Ar):
         self.cut_Data = cut_Data
+        self.Type_Run = Type_Run
         self.DEIM_sensor = DEIM_sensor
         self.Modes = Modes
         self.phi = phi
         self.Ar = Ar
 
-    def rand_choice_integer_Eq(self):
+    def rand_choice_integer_Data(self):        
+        return self.cut_Data
         
-        list1= [0,1,2,3,4]
-        
-        list2=[]
-        for i in range(self.cut_Eq):
-            r=random.randint(5,self.ntotal-1)
-            if r not in list1: list1.append(r)
-        for i in list1:
-            list2.append(i)
-        return np.array(list2)
-      
-    def rand_choice_integer_Data(self):
-        
-        list1= [0]
-        list2=[]
-        for i in range(self.cut_Data):
-            r=random.randint(1,self.ntotal-20)
-            if r not in list1: list1.append(r)
-        for i in list1:
-            list2.append(i)
-        return np.array(list2)
+    def runtype(self):        
+        return self.Type_Run
     
     def burger_equation(self,input_, output_):
         
@@ -82,19 +64,13 @@ class Burgers1D(TimeDependentProblem):
         nt = 100
         mu = 0.05
         L = torch.linspace(0, 1, nx).reshape(-1, 1)
-        list_array = self.rand_choice_integer_Eq 
-        for i in range(10,output_.size(0)-5):
+        for i in range(2,output_.size(0)-2):
             Burgers_Prob = Burgers_Discrete(L,input_.extract(['t']), mu, output_[i,:],output_[i+1,:],self.DEIM_sensor,self.Modes,self.phi,self.Ar)
-            if (i == 10):
+            if (i == 2):
                 new_tensor = (Burgers_Prob.Burgers_Residual())                
-                # for k in range(len(list_array)):
-                    # val_row = list_array[k]
-                    # new_tensor = delete(new_tensor,val_row-k,0)
+                
             else:
                 Residual_Dis = (Burgers_Prob.Burgers_Residual())
-                # for k in range(len(list_array)):
-                    # val_row = list_array[k]
-                    # Residual_Dis = delete(Residual_Dis,val_row-k,0)
                 new_tensor = torch.cat((new_tensor,Residual_Dis), dim = 0) 
         
         return new_tensor

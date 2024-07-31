@@ -39,40 +39,22 @@ class Burgers1D(TimeDependentProblem):
     output_variables = list_u
     temporal_domain = Span({'t': input_tensor.reshape(-1,1)})
     
-    def __init__(self,ntotal,cut_Eq,cut_Data):
-        self.ntotal = ntotal
-        self.cut_Eq = cut_Eq
-        self.cut_Data = cut_Data
+    def __init__(self,cut_Data,Type_Run):
 
-    def rand_choice_integer_Eq(self):
+        self.cut_Data = cut_Data
+        self.Type_Run = Type_Run
         
-        list1= [0,1,2,3,4]
+    def rand_choice_integer_Data(self):        
+        return self.cut_Data
         
-        list2=[]
-        for i in range(self.cut_Eq):
-            r=random.randint(5,self.ntotal-1)
-            if r not in list1: list1.append(r)
-        for i in list1:
-            list2.append(i)
-        return np.array(list2)
-      
-    def rand_choice_integer_Data(self):
-        
-        list1= [0]
-        list2=[]
-        for i in range(self.cut_Data):
-            r=random.randint(1,self.ntotal-20)
-            if r not in list1: list1.append(r)
-        for i in list1:
-            list2.append(i)
-        return np.array(list1)
+    def runtype(self):        
+        return self.Type_Run
     
     def burger_equation(self,input_, output_):    
         nx = 20
         nt = 100
         mu = 0.05
         L = torch.linspace(0, 1, nx).reshape(-1, 1)
-        list_array = self.rand_choice_integer_Eq 
         for i in range(2,output_.size(0)-2):
             Burgers_Prob = Burgers_Discrete(L,input_.extract(['t']), mu, output_[i,:],output_[i+1,:])
             if (i == 2):
@@ -88,15 +70,9 @@ class Burgers1D(TimeDependentProblem):
     def nil_dirichlet_L(self,input_, output_):
         value = 0.0
         return (output_.extract(['u_19']) - value)
-    
-    def initial_condition(self,input_, output_):
-        nx = 20
-        L = torch.linspace(0, 1, nx).reshape(-1, 1)
-        u_expected = torch.sin(torch.pi*L)
-        return output_[0,:] - u_expected
+   
     
     conditions = {
-        # 't0':Condition(Span({'t': 0}), initial_condition),
-        'D': Condition(Span({'t': input_tensor.reshape(-1,1)}), [burger_equation]),
+        'D': Condition(Span({'t': input_tensor.reshape(-1,1)}), [burger_equation,nil_dirichlet_0,nil_dirichlet_L]),
         'E': Condition(input_points = input_tensor,output_points = output_tensor),
     }
