@@ -9,12 +9,15 @@ __all__ = [
     'DisPINNLSTMBurgers_External',
     'DisPINNLSTMBurgers',
     'DisPINNANNMassSpring',
+    'DisPINNADMassSpring',
     'DisPINNLSTMMassSpring',
     'LabelTensor',
     'Plotter',
+    'PlotterAD',
     'PlotterANN',
     'PlotterANNReduced',
     'PlotterANNMassSpring',
+    'PlotterADMassSpring',
     'PlotterLSTMMassSpring',
     'PlotterLSTM',
     'PlotterLSTMReduced',
@@ -45,16 +48,19 @@ from .Dispinn_LSTM_Burgers_External import DisPINNLSTMBurgers_External
 
 from .pinn_MassSpring import PINNMassSpring
 from .Dispinn_ANN_MassSpring import DisPINNANNMassSpring
+from .Dispinn_AD_MassSpring import DisPINNADMassSpring
 from .Dispinn_LSTM_MassSpring import DisPINNLSTMMassSpring
 
 "Source plotter files required for the Burgers Equation"
 
 from .plotter import Plotter
+from .plotter_AD_Burgers import PlotterAD
 from .plotter_ANN import PlotterANN
 from .plotter_LSTM import PlotterLSTM
 from .plotter_ANN_Reduced import PlotterANNReduced
 from .plotter_LSTM_Reduced import PlotterLSTMReduced
 from .plotter_ANN_MassSpring import PlotterANNMassSpring
+from .plotter_AD_MassSpring import PlotterADMassSpring
 from .plotter_LSTM_MassSpring import PlotterLSTMMassSpring
 from .plotter_External_ANN import PlotterExtANN
 from .plotter_External_LSTM import PlotterExtLSTM

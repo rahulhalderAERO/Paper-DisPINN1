@@ -3,8 +3,7 @@ import torch
 import torch.nn as nn
 from pina.label_tensor import LabelTensor
 from torch.autograd import Variable
-
-
+torch.manual_seed(10)
 
 class LSTM(torch.nn.Module):
     

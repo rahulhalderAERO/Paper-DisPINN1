@@ -105,7 +105,7 @@ class PlotterExtLSTM:
         predicted_output_array = predicted.detach().numpy()
         pts_array = pts.detach().numpy()        
         mdic = {"predicted_output_LSTMExternal_{}_{}".format(pinn.problem.rand_choice_integer_Data(),pinn.problem.runtype()):predicted_output_array, "pts_array_LSTMExternal_{}_{}".format(pinn.problem.rand_choice_integer_Data(),pinn.problem.runtype()):pts_array}
-        savemat("Results/Burgers_Dis_LSTMExternal_{}_{}.mat".format(pinn.problem.rand_choice_integer_Data(),pinn.problem.runtype()), mdic)
+        savemat("Results/Burgers_External/Burgers_Dis_LSTMExternal_{}_{}.mat".format(pinn.problem.rand_choice_integer_Data(),pinn.problem.runtype()), mdic)
         
             
 
@@ -122,4 +122,4 @@ class PlotterExtLSTM:
         epochs = list(pinn.history_loss.keys())
         loss = np.array(list(pinn.history_loss.values()))        
         mdic_loss = {"epochs_dis_LSTMExternal_{}_{}".format(pinn.problem.rand_choice_integer_Data(),pinn.problem.runtype()):epochs, "loss_dis_LSTMExternal_{}_{}".format(pinn.problem.rand_choice_integer_Data(),pinn.problem.runtype()):loss}
-        savemat("Results/Burgers_loss_dis_LSTMExternal_{}_{}.mat".format(pinn.problem.rand_choice_integer_Data(),pinn.problem.runtype()), mdic_loss)
+        savemat("Results/Burgers_External/Burgers_loss_dis_LSTMExternal_{}_{}.mat".format(pinn.problem.rand_choice_integer_Data(),pinn.problem.runtype()), mdic_loss)

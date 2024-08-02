@@ -6,6 +6,7 @@ from .label_tensor import LabelTensor
 import numpy
 from scipy.io import savemat
 import time
+import numpy as np
 
 
 torch.pi = torch.acos(torch.zeros(1)).item() * 2 # which is 3.1415927410125732
@@ -35,20 +36,10 @@ class PINNBurgers(object):
         if dtype == torch.float64:
             raise NotImplementedError('only float for now')
 
-        self.problem = problem
-        # self.getM = problem.getM()
-        # self.getK = problem.getK()        
-        #self.rand_choice_integer_Eq = problem.rand_choice_integer_Eq()
+        self.problem = problem       
         self.rand_choice_integer_Data = problem.rand_choice_integer_Data()
-
-        # self._architecture = architecture if architecture else dict()
-        # self._architecture['input_dimension'] = self.problem.domain_bound.shape[0]
-        # self._architecture['output_dimension'] = len(self.problem.variables)
-        # if hasattr(self.problem, 'params_domain'):
-            # self._architecture['input_dimension'] += self.problem.params_domain.shape[0]
-
+        self.runtype = problem.runtype()
         self.error_norm = error_norm
-
         if device == 'cuda' and not torch.cuda.is_available():
             raise RuntimeError
         self.device = torch.device(device)
@@ -104,12 +95,6 @@ class PINNBurgers(object):
                 'history' : self.history_loss,
                 'input_points_dict' : self.input_pts,
         }
-
-        # TODO save also architecture param?
-        #if isinstance(self.model, DeepFeedForward):
-        #    checkpoint['model_class'] = self.model.__class__
-        #    checkpoint['model_structure'] = {
-        #    }
         torch.save(checkpoint, filename)
 
     def load_state(self, filename):
@@ -219,20 +204,10 @@ class PINNBurgers(object):
             losses = []
             for condition_name in self.problem.conditions:
                 condition = self.problem.conditions[condition_name]
-                if hasattr(condition, 'function'):
-                    pts = self.input_pts[condition_name]
-                    predicted = self.model(pts)
-                    pts_new = pts
-                    pts_new.labels = self.model.input_variables                    
-                    for function in condition.function:
-                        residuals = function(self,pts_new, predicted)
-                        # residuals = function(pts, predicted)
-                        local_loss = (
-                            condition.data_weight*self._compute_norm(
-                                residuals))
-                        losses.append(local_loss)
-                        
-                if hasattr(condition, 'output_points'):
+                
+                if self.runtype == "Data":
+                
+                 if hasattr(condition, 'output_points'):
                     
                     pts = condition.input_points                    
                     pts = (pts.to(dtype=self.dtype,device=self.device))
@@ -242,15 +217,49 @@ class PINNBurgers(object):
                     
                     # MODIFY OUTPUT Points:
                     
-                    output_tensor = condition.output_points                    
-                    #tensors_y = torch.stack([output_tensor[i+self.model.seq_length] for i in range(len(output_tensor)-self.model.seq_length-1)])                    
-                    list_arrayD = self.rand_choice_integer_Data 
-                    residuals = (predicted[0,:] - output_tensor[0,:])                    
-                    residuals_aligned = residuals.reshape(-1,1)
-                    local_loss = (
+                    output_tensor = condition.output_points                                                            
+                    if self.rand_choice_integer_Data == 100:                                      
+                      residuals = (predicted - output_tensor)
+                      residuals_aligned = residuals.reshape(-1,1)
+                      local_loss = (
                         condition.data_weight*self._compute_norm(residuals))
-                    losses.append(local_loss)    
-            # print("The value of the loss is =====", losses)
+                      losses.append(local_loss)
+                    
+                       
+                
+                else:
+                
+                 if hasattr(condition, 'function'):
+                    pts = self.input_pts[condition_name]
+                    predicted = self.model(pts)
+                    pts_new = pts
+                    pts_new.labels = self.model.input_variables                    
+                    for function in condition.function:
+                        residuals = function(self,pts_new, predicted)
+                        local_loss = (
+                            condition.data_weight*self._compute_norm(
+                                residuals))
+                        losses.append(local_loss)
+                        
+                 if hasattr(condition, 'output_points'):
+                    
+                    pts = condition.input_points                    
+                    pts = (pts.to(dtype=self.dtype,device=self.device))
+                    pts.requires_grad_(True)
+                    pts.retain_grad()
+                    predicted = self.model(pts)
+                    
+                    # MODIFY OUTPUT Points:
+                    
+                    output_tensor = condition.output_points
+                    if self.rand_choice_integer_Data == 100:                                      
+                      residuals = (predicted - output_tensor)
+                      residuals_aligned = residuals.reshape(-1,1)
+                      local_loss = (
+                        condition.data_weight*self._compute_norm(residuals))
+                      losses.append(local_loss)
+                    
+                    
             return losses
     
     
